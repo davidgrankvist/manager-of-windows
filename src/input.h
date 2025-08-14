@@ -18,7 +18,11 @@ typedef enum {
     KEY_0 = 1 << 10,
     KEY_Q = 1 << 11,
     KEY_W = 1 << 12,
-    KEY_SUPER_LEFT = 1 << 13,
+    KEY_H = 1 << 13,
+    KEY_J = 1 << 14,
+    KEY_K = 1 << 15,
+    KEY_L = 1 << 16,
+    KEY_SUPER_LEFT = 1 << 17,
 } KeyCode;
 
 #define KEY_NONE 0

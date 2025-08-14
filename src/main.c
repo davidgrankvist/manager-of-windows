@@ -19,12 +19,16 @@ static KeyCode MapVk(byte vk) {
         case '9': return KEY_9;
         case 'Q': return KEY_Q;
         case 'W': return KEY_W;
+        case 'H': return KEY_H;
+        case 'J': return KEY_J;
+        case 'K': return KEY_K;
+        case 'L': return KEY_L;
         case VK_LWIN: return KEY_SUPER_LEFT;
         default: return KEY_NONE;
     }
 }
 
-void FocusWindowManager();
+static void FocusWindowManager();
 
 HHOOK keyboardHook;
 KeyCode keyLeader = KEY_SUPER_LEFT;
@@ -54,14 +58,14 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     return CallNextHookEx(keyboardHook, nCode, wParam, lParam);
 }
 
-void SetKeyboardHook() {
+static void SetKeyboardHook() {
     keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
     if (keyboardHook == NULL) {
         exit(1);
     }
 }
 
-void RemoveKeyboardHook() {
+static void RemoveKeyboardHook() {
     if (keyboardHook != NULL) {
         UnhookWindowsHookEx(keyboardHook);
     }
@@ -120,7 +124,7 @@ HWND CreateWindowManagerWindow() {
     return hwnd;
 }
 
-void ForceWindowIntoFocus(HWND hwnd) {
+static void ForceWindowIntoFocus(HWND hwnd) {
     HWND fg = GetForegroundWindow();
     DWORD fgThread = GetWindowThreadProcessId(fg, NULL);
     DWORD thisThread = GetCurrentThreadId();
@@ -133,12 +137,61 @@ void ForceWindowIntoFocus(HWND hwnd) {
 
 HWND windowManagerHwnd = NULL;
 
-void FocusWindowManager() {
+static void FocusWindowManager() {
     ForceWindowIntoFocus(windowManagerHwnd);
 }
 
-static bool IsCommandRequested(CommandType cmdType, InputBuffer* buf, KeyCode* keyMap) {
+static inline bool IsCommandRequested(CommandType cmdType, InputBuffer* buf, KeyCode* keyMap) {
     return IsKeyPressed(keyMap[cmdType], buf);
+}
+
+static bool HandleSelectWorkspaceMode(InputBuffer* buf, KeyMap keyMap, CommandModeType* mode) {
+    bool didConsumeKey = false;
+
+    int workspace = -1;
+    for (int i = 0; i <= 9; i++) {
+        CommandType cmd = COMMAND_SELECT_WORKSPACE_0 + i;
+        if (IsCommandRequested(cmd, buf, keyMap)) {
+            workspace = i;
+            didConsumeKey = true;
+            break;
+        }
+    }
+
+    if (workspace != -1) {
+        printf("workspace %d\n", workspace);
+    }
+
+    if (IsCommandRequested(COMMAND_MODE_SELECT_WINDOW, buf, keyMap)) {
+        printf("select window mode\n");
+        *mode = MODE_SELECT_WINDOW;
+        didConsumeKey = true;
+    }
+
+    return didConsumeKey;
+}
+
+static bool HandleSelectWindowMode(InputBuffer* buf, KeyMap keyMap, CommandModeType* mode) {
+    bool didConsumeKey = false;
+    if (IsCommandRequested(COMMAND_SELECT_WINDOW_LEFT, buf, keyMap)) {
+        printf("window left\n");
+        didConsumeKey = true;
+        *mode = MODE_SELECT_WORKSPACE;
+    } else if (IsCommandRequested(COMMAND_SELECT_WINDOW_RIGHT, buf, keyMap)) {
+        printf("window right\n");
+        didConsumeKey = true;
+        *mode = MODE_SELECT_WORKSPACE;
+    } else if (IsCommandRequested(COMMAND_SELECT_WINDOW_UP, buf, keyMap)) {
+        printf("window up\n");
+        didConsumeKey = true;
+        *mode = MODE_SELECT_WORKSPACE;
+    } else if (IsCommandRequested(COMMAND_SELECT_WINDOW_DOWN, buf, keyMap)) {
+        printf("window down\n");
+        didConsumeKey = true;
+        *mode = MODE_SELECT_WORKSPACE;
+    }
+
+    return didConsumeKey;
 }
 
 int main() {
@@ -148,31 +201,56 @@ int main() {
 
     KeyMap keyMap = {
         [COMMAND_QUIT] = KEY_Q,
+        [COMMAND_SELECT_WORKSPACE_0] = KEY_0,
         [COMMAND_SELECT_WORKSPACE_1] = KEY_1,
         [COMMAND_SELECT_WORKSPACE_2] = KEY_2,
+        [COMMAND_SELECT_WORKSPACE_3] = KEY_3,
+        [COMMAND_SELECT_WORKSPACE_4] = KEY_4,
+        [COMMAND_SELECT_WORKSPACE_5] = KEY_5,
+        [COMMAND_SELECT_WORKSPACE_6] = KEY_6,
+        [COMMAND_SELECT_WORKSPACE_7] = KEY_7,
+        [COMMAND_SELECT_WORKSPACE_8] = KEY_8,
+        [COMMAND_SELECT_WORKSPACE_9] = KEY_9,
+        [COMMAND_MODE_SELECT_WINDOW] = KEY_W,
+        [COMMAND_SELECT_WINDOW_LEFT] = KEY_H,
+        [COMMAND_SELECT_WINDOW_RIGHT] = KEY_L,
+        [COMMAND_SELECT_WINDOW_UP] = KEY_K,
+        [COMMAND_SELECT_WINDOW_DOWN] = KEY_J,
     };
+
+    CommandModeType mode = MODE_SELECT_WORKSPACE;
 
     MSG msg;
     while(GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+
         if (msg.message == WM_QUIT) {
             break;
         }
 
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        if (msg.message != WM_KEYDOWN) {
+            continue;
+        }
 
         if (IsCommandRequested(COMMAND_QUIT, &inputBuf, keyMap)) {
             printf("quit\n");
             break;
         }
 
-        if (IsCommandRequested(COMMAND_SELECT_WORKSPACE_1, &inputBuf, keyMap)) {
-            printf("workspace 1\n");
-            ResetInputBuffer(&inputBuf);
+        bool didConsumeKey = false;
+        switch (mode) {
+            case MODE_SELECT_WORKSPACE:
+                didConsumeKey = HandleSelectWorkspaceMode(&inputBuf, keyMap, &mode);
+                break;
+            case MODE_SELECT_WINDOW:
+                didConsumeKey = HandleSelectWindowMode(&inputBuf, keyMap, &mode);
+                break;
+            default:
+                break;
         }
 
-        if (IsCommandRequested(COMMAND_SELECT_WORKSPACE_2, &inputBuf, keyMap)) {
-            printf("workspace 2\n");
+        if (didConsumeKey) {
             ResetInputBuffer(&inputBuf);
         }
     }
