@@ -5,6 +5,17 @@
 #include "input.h"
 #include "commands.h"
 
+// receive leader key presses
+HHOOK keyboardHook;
+KeyCode keyLeader = KEY_SUPER_LEFT;
+InputBuffer hookBuf = {0};
+// receive other input
+HWND windowManagerHwnd = NULL;
+InputBuffer inputBuf = {0};
+
+typedef KeyCode KeyMap[COMMAND_ENUM_COUNT];
+typedef unsigned char byte;
+
 static KeyCode MapVk(byte vk) {
     switch (vk) {
         case '0': return KEY_0;
@@ -28,11 +39,20 @@ static KeyCode MapVk(byte vk) {
     }
 }
 
-static void FocusWindowManager();
+static void ForceWindowIntoFocus(HWND hwnd) {
+    HWND fg = GetForegroundWindow();
+    DWORD fgThread = GetWindowThreadProcessId(fg, NULL);
+    DWORD thisThread = GetCurrentThreadId();
 
-HHOOK keyboardHook;
-KeyCode keyLeader = KEY_SUPER_LEFT;
-InputBuffer hookBuf = {0};
+    AttachThreadInput(thisThread, fgThread, TRUE);
+    SetForegroundWindow(hwnd);
+    SetFocus(hwnd);
+    AttachThreadInput(thisThread, fgThread, FALSE);
+}
+
+static void FocusWindowManager() {
+    ForceWindowIntoFocus(windowManagerHwnd);
+}
 
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode < 0) {
@@ -70,8 +90,6 @@ static void RemoveKeyboardHook() {
         UnhookWindowsHookEx(keyboardHook);
     }
 }
-
-InputBuffer inputBuf = {0};
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
@@ -122,23 +140,6 @@ HWND CreateWindowManagerWindow() {
 
     ShowWindow(hwnd, SW_HIDE);
     return hwnd;
-}
-
-static void ForceWindowIntoFocus(HWND hwnd) {
-    HWND fg = GetForegroundWindow();
-    DWORD fgThread = GetWindowThreadProcessId(fg, NULL);
-    DWORD thisThread = GetCurrentThreadId();
-
-    AttachThreadInput(thisThread, fgThread, TRUE);
-    SetForegroundWindow(hwnd);
-    SetFocus(hwnd);
-    AttachThreadInput(thisThread, fgThread, FALSE);
-}
-
-HWND windowManagerHwnd = NULL;
-
-static void FocusWindowManager() {
-    ForceWindowIntoFocus(windowManagerHwnd);
 }
 
 static inline bool IsCommandRequested(CommandType cmdType, InputBuffer* buf, KeyCode* keyMap) {

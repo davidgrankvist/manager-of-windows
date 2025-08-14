@@ -2,7 +2,6 @@
 #define commands_h
 
 #include "common.h"
-#include "input.h"
 
 typedef enum {
     COMMAND_NONE,
@@ -29,18 +28,9 @@ typedef enum {
     COMMAND_ENUM_COUNT,
 } CommandType;
 
-typedef struct {
-    CommandType type;
-    union {
-        byte stub;
-    } payload;
-} Command;
-
-typedef KeyCode KeyMap[COMMAND_ENUM_COUNT];
-
 typedef enum {
     MODE_SELECT_WORKSPACE,
     MODE_SELECT_WINDOW,
- } CommandModeType;
+} CommandModeType;
 
 #endif
