@@ -1,8 +1,6 @@
 #ifndef commands_h
 #define commands_h
 
-#include "common.h"
-
 typedef enum {
     COMMAND_NONE,
     // Global

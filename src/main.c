@@ -1,9 +1,9 @@
 #include <windows.h>
 #include <stdio.h>
 #include <assert.h>
-#include "common.h"
 #include "input.h"
 #include "commands.h"
+#include "manager.h"
 
 // receive leader key presses
 HHOOK keyboardHook;
@@ -154,13 +154,10 @@ static bool HandleSelectWorkspaceMode(InputBuffer* buf, KeyMap keyMap, CommandMo
         CommandType cmd = COMMAND_SELECT_WORKSPACE_0 + i;
         if (IsCommandRequested(cmd, buf, keyMap)) {
             workspace = i;
+            SelectWorkspace(workspace);
             didConsumeKey = true;
             break;
         }
-    }
-
-    if (workspace != -1) {
-        printf("workspace %d\n", workspace);
     }
 
     if (IsCommandRequested(COMMAND_MODE_SELECT_WINDOW, buf, keyMap)) {
@@ -195,9 +192,54 @@ static bool HandleSelectWindowMode(InputBuffer* buf, KeyMap keyMap, CommandModeT
     return didConsumeKey;
 }
 
+bool IsActualWindow(HWND hwnd) {
+    if (!IsWindowVisible(hwnd)) {
+        return false;
+    }
+
+    int length = GetWindowTextLength(hwnd);
+    if (length == 0) {
+        return false;
+    }
+
+    LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    if (exStyle & WS_EX_TOOLWINDOW) {
+        return false;
+    }
+
+    return true;
+}
+
+BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
+    if (!IsActualWindow(hwnd)) {
+        return TRUE;
+    }
+
+    AddWindow(hwnd);
+    return TRUE;
+}
+
+static void ShowWindowWin32(void* handle) {
+    ShowWindow(handle, SW_SHOW);
+}
+
+static void HideWindowWin32(void* handle) {
+    ShowWindow(handle, SW_HIDE);
+}
+
 int main() {
     windowManagerHwnd = CreateWindowManagerWindow();
     assert(windowManagerHwnd && "Failed to create window manager window.");
+
+    BOOL enumWinResult = EnumWindows(&EnumWindowsProc, 0);
+    assert(enumWinResult && "Failed to enumerate windows.");
+
+    WindowPlatform windowPlatform = {
+        .ShowWindow = &ShowWindowWin32,
+        .HideWindow = &HideWindowWin32,
+    };
+    InitWindowPlatform(windowPlatform);
+
     SetKeyboardHook();
 
     KeyMap keyMap = {
