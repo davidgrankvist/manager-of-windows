@@ -34,6 +34,8 @@ static KeyCode MapVk(byte vk) {
         case 'J': return KEY_J;
         case 'K': return KEY_K;
         case 'L': return KEY_L;
+        case 'S': return KEY_S;
+        case 'V': return KEY_V;
         case VK_LWIN: return KEY_SUPER_LEFT;
         default: return KEY_NONE;
     }
@@ -164,7 +166,14 @@ static bool HandleSelectWorkspaceMode(InputBuffer* buf, KeyMap keyMap, CommandMo
         printf("select window mode\n");
         *mode = MODE_SELECT_WINDOW;
         didConsumeKey = true;
+    } else if (IsCommandRequested(COMMAND_SPLIT_HORIZONTAL, buf, keyMap)) {
+        printf("split horizontal\n");
+        didConsumeKey = true;
+    } else if (IsCommandRequested(COMMAND_SPLIT_VERTICAL, buf, keyMap)) {
+        printf("split vertical\n");
+        didConsumeKey = true;
     }
+
 
     return didConsumeKey;
 }
@@ -227,18 +236,27 @@ static void HideWindowWin32(void* handle) {
     ShowWindow(handle, SW_HIDE);
 }
 
+static void MoveResizeWindowWin32(void* handle, int x, int y, int width, int height) {
+    MoveWindow(handle, x, y, width, height, TRUE);
+}
+
 int main() {
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    InitWindowManager(screenWidth, screenHeight);
+
+    WindowPlatform windowPlatform = {
+        .ShowWindow = &ShowWindowWin32,
+        .HideWindow = &HideWindowWin32,
+        .MoveResizeWindow = &MoveResizeWindowWin32,
+    };
+    InitWindowPlatform(windowPlatform);
+
     windowManagerHwnd = CreateWindowManagerWindow();
     assert(windowManagerHwnd && "Failed to create window manager window.");
 
     BOOL enumWinResult = EnumWindows(&EnumWindowsProc, 0);
     assert(enumWinResult && "Failed to enumerate windows.");
-
-    WindowPlatform windowPlatform = {
-        .ShowWindow = &ShowWindowWin32,
-        .HideWindow = &HideWindowWin32,
-    };
-    InitWindowPlatform(windowPlatform);
 
     SetKeyboardHook();
 
@@ -259,6 +277,8 @@ int main() {
         [COMMAND_SELECT_WINDOW_RIGHT] = KEY_L,
         [COMMAND_SELECT_WINDOW_UP] = KEY_K,
         [COMMAND_SELECT_WINDOW_DOWN] = KEY_J,
+        [COMMAND_SPLIT_HORIZONTAL] = KEY_S,
+        [COMMAND_SPLIT_VERTICAL]= KEY_V,
     };
 
     CommandModeType mode = MODE_SELECT_WORKSPACE;
