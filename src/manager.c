@@ -29,6 +29,7 @@ typedef struct {
     int windowCount;
     Split splits[MAX_SPLITS];
     int splitCount;
+    int currentSplit;
     Screen screen;
 } Workspace;
 
@@ -69,21 +70,58 @@ void InitWindowPlatform(WindowPlatform pl) {
     platform = pl;
 }
 
+static inline int ScalePercent(int value, int percentage) {
+    return value * (float)(percentage / 100.0);
+}
+
+static inline Workspace* GetWorkspace(int workspaceIndex) {
+    return &state.workspaces[workspaceIndex];
+}
+
+static inline Workspace* GetCurrentWorkspace() {
+    return GetWorkspace(state.currentWorkspace);
+}
+
+static inline Split* GetCurrentSplit() {
+    Workspace* workspace = GetCurrentWorkspace();
+    return &workspace->splits[workspace->currentSplit];
+}
+
 static void ApplyLayout(Window win) {
-    Workspace* workspace = &state.workspaces[state.currentWorkspace];
+    Workspace* workspace = GetCurrentWorkspace();
     Screen screen = workspace->screen;
     Split split = workspace->splits[win.split];
 
-    int width = screen.width * (float)(split.width / 100.0);
-    int height = screen.height * (float)(split.height / 100.0);
-    int top = screen.height * (float)(split.top / 100.0);
-    int left = screen.width * (float)(split.left / 100.0);
+    int width = ScalePercent(screen.width, split.width);
+    int height = ScalePercent(screen.height, split.height);
+    int top = ScalePercent(screen.height, split.top);
+    int left = ScalePercent(screen.width, split.left);
 
     platform.MoveResizeWindow(win.handle, left, top, width, height);
 }
 
+static void UpdateWorkspaceLayout(Workspace* workspace) {
+    for (int i = 0; i < workspace->windowCount; i++) {
+        ApplyLayout(workspace->windows[i]);
+    }
+}
+
+void SplitCurrentHorizontal() {
+    Split* split = GetCurrentSplit();
+    split->height /= 2;
+
+    UpdateWorkspaceLayout(GetCurrentWorkspace());
+}
+
+void SplitCurrentVertical() {
+    Split* split = GetCurrentSplit();
+    split->width /= 2;
+
+    UpdateWorkspaceLayout(GetCurrentWorkspace());
+}
+
 void AddWindow(void* handle) {
-    Workspace* workspace = &state.workspaces[state.currentWorkspace];
+    Workspace* workspace = GetCurrentWorkspace();
     Window win = {
         .handle = handle,
         .split = workspace->splitCount - 1,
@@ -94,14 +132,14 @@ void AddWindow(void* handle) {
 }
 
 static void HideWorkspaceWindows(int workspaceIndex) {
-    Workspace* workspace = &state.workspaces[workspaceIndex];
+    Workspace* workspace = GetWorkspace(workspaceIndex);
     for (int i = 0; i < workspace->windowCount; i++) {
         platform.HideWindow(workspace->windows[i].handle);
     }
 }
 
 static void ShowWorkspaceWindows(int workspaceIndex) {
-    Workspace* workspace = &state.workspaces[workspaceIndex];
+    Workspace* workspace = GetWorkspace(workspaceIndex);
     for (int i = 0; i < workspace->windowCount; i++) {
         platform.ShowWindow(workspace->windows[i].handle);
     }
@@ -112,8 +150,10 @@ void SelectWorkspace(int workspace) {
         return;
     }
 
-    int targetScreenId = state.workspaces[workspace].screen.id;
-    int currentScreenId = state.workspaces[state.currentWorkspace].screen.id;
+    Workspace* currentWorkspace = GetCurrentWorkspace();
+    Workspace* targetWorkspace = GetWorkspace(workspace);
+    int targetScreenId = targetWorkspace->screen.id;
+    int currentScreenId = currentWorkspace->screen.id;
     if (targetScreenId == currentScreenId) {
         HideWorkspaceWindows(state.currentWorkspace);
         ShowWorkspaceWindows(workspace);

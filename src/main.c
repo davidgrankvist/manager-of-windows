@@ -163,17 +163,15 @@ static bool HandleSelectWorkspaceMode(InputBuffer* buf, KeyMap keyMap, CommandMo
     }
 
     if (IsCommandRequested(COMMAND_MODE_SELECT_WINDOW, buf, keyMap)) {
-        printf("select window mode\n");
         *mode = MODE_SELECT_WINDOW;
         didConsumeKey = true;
     } else if (IsCommandRequested(COMMAND_SPLIT_HORIZONTAL, buf, keyMap)) {
-        printf("split horizontal\n");
+        SplitCurrentHorizontal();
         didConsumeKey = true;
     } else if (IsCommandRequested(COMMAND_SPLIT_VERTICAL, buf, keyMap)) {
-        printf("split vertical\n");
+        SplitCurrentVertical();
         didConsumeKey = true;
     }
-
 
     return didConsumeKey;
 }

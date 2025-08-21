@@ -3,6 +3,8 @@
 
 void AddWindow(void* handle);
 void SelectWorkspace(int workspace);
+void SplitCurrentHorizontal();
+void SplitCurrentVertical();
 
 typedef struct {
     void (*ShowWindow)(void* handle);
